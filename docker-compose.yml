@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  baleia-ocr-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: baleia-ocr-api
+    restart: always
+    environment:
+      - OLLAMA_API_URL=http://ollama:11434/api/generate
+    networks:
+      - proxy
+      - ollama
+    labels:
+      - "traefik.enable=true"
+      # Expor por caminho no Traefik: https://integramaker.ifpb.edu.br/ia-api
+      - "traefik.http.routers.ia-api.rule=Host(`integramaker.ifpb.edu.br`) && (PathPrefix(`/ia-api`) || Path(`/ia-api`))"
+      - "traefik.http.routers.ia-api.entrypoints=websecure"
+      - "traefik.http.routers.ia-api.tls=true"
+      - "traefik.http.routers.ia-api.tls.certresolver=le"
+      
+      # Middleware para remover o prefixo /ia-api antes de passar para a API
+      - "traefik.http.middlewares.ia-api-stripprefix.stripprefix.prefixes=/ia-api"
+      - "traefik.http.routers.ia-api.middlewares=ia-api-stripprefix@docker"
+      
+      # Porta interna do uvicorn (FastAPI) no container
+      - "traefik.http.services.ia-api.loadbalancer.server.port=8000"
+      - "traefik.docker.network=proxy"
+
+networks:
+  proxy:
+    external: true
+  ollama:
+    external: true

@@ -1,88 +1,36 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Body
 import requests
 import base64
 import uvicorn
-
-# Edição de Imagens 
-from PIL import Image
-from PIL import ImageEnhance
-from PIL import ImageFilter
-import io
-
-#paddleocr
-from paddleocr import PaddleOCR
-import numpy as np
+import os
 
 app = FastAPI()
 
-OLLAMA_API_URL = "http://200.129.71.149:11434/api/generate"
+OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://200.129.71.149:11434/api/generate")
 
-# Inicializa uma vez
-ocr = PaddleOCR(
-    use_doc_orientation_classify=False,
-    use_doc_unwarping=False,
-    use_textline_orientation=False,
-    lang="pt"
-)
-ocr = PaddleOCR(
-    use_doc_orientation_classify=False,
-    use_doc_unwarping=False,
-    use_textline_orientation=False,
-    engine="paddle",
-    lang="pt",
-)
+
 
 @app.post("/ocr")
-async def ocf_imagem( file: UploadFile = File(...)):
-    image_bytes = await file.read()
-
-    img = Image.open(io.BytesIO(image_bytes))
-
-    # resize
-    max_width = 512
-
-    if img.width > max_width:
-
-        ratio = max_width / img.width
-
-        img = img.resize(
-            (
-                max_width,
-                int(img.height * ratio)
-            ),
-            Image.LANCZOS
-        )
-
-    # grayscale
-    img = img.convert("L")
-
-    # contraste
-    img = ImageEnhance.Contrast(img).enhance(2)
-
-    # nitidez
-    img = ImageEnhance.Sharpness(img).enhance(2)
-
-    # remover ruido
-    img = img.filter(ImageFilter.MedianFilter())
-
-    buffer = io.BytesIO()
-
-    img.save(
-        buffer,
-        format="JPEG",
-        quality=85,
-        optimize=True
-    )
-
-    image_base64 = base64.b64encode(
-        buffer.getvalue()
-    ).decode("utf-8")
+async def ocr_imagem(
+    image_base64: str = Body(''),
+    key: str = Body(''),
+    model: str = Body(''),
+    system_message: str = Body('')
+):
     
-    system_mensage = """
-        Extraia exatamente o texto visível da página.
-        Preserve:
-        - títulos
-        - quebras de linha
+    if key != "b1a919be-94a2-40c9-983a-f6b7893f7800":
+        return {
+            "error": "Chave inválida!"
+        }
+
+    if system_message: 
+        system_mensage = system_message
+    else:
+        system_mensage = """
+            Extraia exatamente o texto visível da página.
+            Preserve:
+            - títulos
+            - quebras de linha
         - fórmulas
         - tabelas simples
         - numeração
@@ -92,21 +40,14 @@ async def ocf_imagem( file: UploadFile = File(...)):
         Retorne apenas o texto puro, sem nenhum texto adicional.
     """
 
-    system_mensage2 = """
-        Extraia TODO o texto da imagem.
-        Mantenha parágrafos, acentos e pontuação.
-        Não resuma.
-        Retorne apenas o texto puro.
-    """
-
-    #model = "qwen2.5vl:7b-gpu"
-    model = "glm-ocr:latest"
-    #model = "llava:7b"
-    #model = "openbmb/minicpm-v2.6"
+    if model:
+        model = model
+    else:
+        model = "glm-ocr:latest"
 
     payload = {
         "model": model,
-        "prompt": system_mensage2,
+        "prompt": system_mensage,
         "images": [image_base64],
         "stream": False,        
         "options": {
@@ -132,76 +73,6 @@ async def ocf_imagem( file: UploadFile = File(...)):
         "tokens_saida": result.get("eval_count", 0)
     }
 
-@app.post("/ocr")
-async def ocr_image(file: UploadFile = File(...)):
-
-    image_bytes = await file.read()
-
-    image = Image.open(
-        io.BytesIO(image_bytes)
-    ).convert("RGB")
-
-    image_np = np.array(image)
-
-    result = ocr.ocr(image_np, cls=True)
-
-    textos = []
-
-    for bloco in result:
-
-        if bloco is None:
-            continue
-
-        for linha in bloco:
-
-            texto = linha[1][0]
-
-            confianca = linha[1][1]
-
-            textos.append({
-                "texto": texto,
-                "confianca": round(float(confianca), 4)
-            })
-
-    texto_final = "\n".join(
-        [t["texto"] for t in textos]
-    )
-
-    return {
-        "text": texto_final,
-        "linhas": textos
-    }
-
-@app.post("/paddleocr")
-async def paddle_ocr_image(
-    file: UploadFile = File(...)
-):
-
-    image_bytes = await file.read()
-
-    image = Image.open(
-        io.BytesIO(image_bytes)
-    ).convert("RGB")
-
-    image_np = np.array(image)
-
-    result = ocr.predict(image_np)
-
-    textos = []
-
-    for page in result:
-
-        if "rec_texts" in page:
-
-            textos.extend(
-                page["rec_texts"]
-            )
-
-    texto_final = "\n".join(textos)
-
-    return {
-        "text": texto_final
-    }
 
 
 if __name__ == "__main__":
