@@ -2,7 +2,7 @@ import requests
 import base64
 
 # URL da nossa API local rodando em FastAPI
-url = "http://localhost:8000/ocr"
+url = "https://integramaker.ifpb.edu.br/ia-api/ocr"
 
 # Envia a imagem local convertida em base64
 with open("01.jpeg", "rb") as f:
