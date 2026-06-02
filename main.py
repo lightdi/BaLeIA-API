@@ -4,7 +4,7 @@ import base64
 import uvicorn
 import os
 
-app = FastAPI()
+app = FastAPI(root_path=os.environ.get("ROOT_PATH", ""))
 
 OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://ollama:11434/api/generate")
 

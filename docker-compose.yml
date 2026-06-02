@@ -9,6 +9,7 @@ services:
     restart: always
     environment:
       - OLLAMA_API_URL=http://ollama:11434/api/generate
+      - ROOT_PATH=/ia-api
     networks:
       - proxy
       - ollama
