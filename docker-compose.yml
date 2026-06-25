@@ -16,10 +16,10 @@ services:
     labels:
       - "traefik.enable=true"
       # Expor por caminho no Traefik: https://integramaker.ifpb.edu.br/ia-api
-      - "traefik.http.routers.ia-api.rule=Host(`integramaker.ifpb.edu.br`) && (PathPrefix(`/ia-api`) || Path(`/ia-api`))"
+      - "traefik.http.routers.ia-api.rule=Host(`https://fearless-ellsworth-obsessional.ngrok-free.dev/`) && (PathPrefix(`/ia-api`) || Path(`/ia-api`))"
       - "traefik.http.routers.ia-api.entrypoints=websecure"
-      - "traefik.http.routers.ia-api.tls=true"
-      - "traefik.http.routers.ia-api.tls.certresolver=le"
+      #- "traefik.http.routers.ia-api.tls=true"
+      #- "traefik.http.routers.ia-api.tls.certresolver=le"
 
       # Middleware para remover o prefixo /ia-api antes de passar para a API
       - "traefik.http.middlewares.ia-api-stripprefix.stripprefix.prefixes=/ia-api"
