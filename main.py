@@ -1,66 +1,83 @@
-from fastapi import FastAPI, File, UploadFile, Body
+```python
+from fastapi import FastAPI, Body
 import requests
-import base64
 import uvicorn
 import os
 
-app = FastAPI(root_path=os.environ.get("ROOT_PATH", ""))
 
-OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://ollama:11434/api/generate")
+app = FastAPI(
+    title="IA API",
+    description="API para OCR e LLM utilizando Ollama"
+)
 
+
+OLLAMA_API_URL = os.environ.get(
+    "OLLAMA_API_URL",
+    "http://ollama:11434/api/generate"
+)
+
+API_KEY = os.environ.get(
+    "API_KEY",
+    "b1a919be-94a2-40c9-983a-f6b7893f7800"
+)
 
 
 @app.post("/ocr")
 async def ocr_imagem(
-    image_base64: str = Body(''),
-    key: str = Body(''),
-    model: str = Body(''),
-    system_message: str = Body('')
+    image_base64: str = Body(""),
+    key: str = Body(""),
+    model: str = Body(""),
+    system_message: str = Body("")
 ):
-    
-    if key != "b1a919be-94a2-40c9-983a-f6b7893f7800":
+
+    if key != API_KEY:
         return {
             "error": "Chave inválida!"
         }
 
-    if system_message: 
-        system_mensage = system_message
-    else:
-        system_mensage = """
-            Extraia exatamente o texto visível da página.
-            Preserve:
-            - títulos
-            - quebras de linha
-        - fórmulas
-        - tabelas simples
-        - numeração
+    if not system_message:
+        system_message = """
+Extraia exatamente o texto visível da página.
 
-        Ignore dedos, sombras e fundo.
-        Não invente texto.        
-        Retorne apenas o texto puro, sem nenhum texto adicional.
-    """
+Preserve:
+- títulos
+- quebras de linha
+- fórmulas
+- tabelas simples
+- numeração
 
-    if model:
-        model = model
-    else:
+Ignore dedos, sombras e fundo.
+
+Não invente texto.
+
+Retorne apenas o texto puro, sem nenhum texto adicional.
+"""
+
+    if not model:
         model = "glm-ocr:latest"
 
     payload = {
         "model": model,
-        "prompt": system_mensage,
+        "prompt": system_message,
         "images": [image_base64],
-        "stream": False,        
+        "stream": False,
         "options": {
-            "options": {
-                "num_ctx": 512,
-                "num_predict": 400,
-                "num_gpu": 999
-            }
-        }   
+            "num_ctx": 512,
+            "num_predict": 400,
+            "num_gpu": 999
+        }
     }
 
-    response = requests.post(OLLAMA_API_URL, json=payload)
+    response = requests.post(
+        OLLAMA_API_URL,
+        json=payload,
+        timeout=300
+    )
+
+    response.raise_for_status()
+
     result = response.json()
+
     return {
         "text": result.get("response", ""),
         "model": result.get("model"),
@@ -76,39 +93,44 @@ async def ocr_imagem(
 
 @app.post("/llm")
 async def llm_chat(
-    user_message: str = Body(''),
-    key: str = Body(''),
-    model: str = Body(''),
-    system_message: str = Body('')
+    user_message: str = Body(""),
+    key: str = Body(""),
+    model: str = Body(""),
+    system_message: str = Body("")
 ):
-    if key != "b1a919be-94a2-40c9-983a-f6b7893f7800":
+
+    if key != API_KEY:
         return {
             "error": "Chave inválida!"
         }
 
-    if model:
-        model = model
-    else:
+    if not model:
         model = "phi4-mini:latest"
 
     payload = {
         "model": model,
         "prompt": user_message,
-        "stream": False,        
+        "stream": False,
         "options": {
-            "options": {
-                "num_ctx": 2048,
-                "num_predict": 1024,
-                "num_gpu": 999
-            }
-        }   
+            "num_ctx": 2048,
+            "num_predict": 1024,
+            "num_gpu": 999
+        }
     }
 
     if system_message:
         payload["system"] = system_message
 
-    response = requests.post(OLLAMA_API_URL, json=payload)
+    response = requests.post(
+        OLLAMA_API_URL,
+        json=payload,
+        timeout=300
+    )
+
+    response.raise_for_status()
+
     result = response.json()
+
     return {
         "text": result.get("response", ""),
         "model": result.get("model"),
@@ -122,10 +144,25 @@ async def llm_chat(
     }
 
 
-if __name__ == "__main__":
+@app.get("/")
+async def root():
+    return {
+        "status": "online",
+        "service": "IA API"
+    }
 
+
+@app.get("/health")
+async def health():
+    return {
+        "status": "ok"
+    }
+
+
+if __name__ == "__main__":
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=8000
     )
+```
